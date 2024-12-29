@@ -1,8 +1,6 @@
 pipeline {
     agent any
-    environment {
-        DOCKER_TAG = "khaledmohamed447/app-test:${env.BUILD_NUMBER ?: 'latest'}"
-    }
+
     stages {
         stage('Checkout Code') {
             steps {
