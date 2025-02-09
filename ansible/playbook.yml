@@ -1,0 +1,59 @@
+---
+- name: Set up and run Todo List application
+  hosts: localhost  # Run on the local machine
+  become: true    # Use sudo (become a privileged user)
+  vars:
+    app_dir: /opt/todo-app  # Directory where the app will be placed
+  tasks:
+    - name: Install required packages (Debian/Ubuntu)
+      apt:
+        name:
+          - python3
+          - python3-pip
+        state: present
+      when: ansible_os_family == 'Debian'
+
+    - name: Install required packages (RedHat/CentOS)
+      yum:
+        name:
+          - python3
+          - python3-pip
+        state: present
+      when: ansible_os_family == 'RedHat'
+    
+    - name: Create application directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy application files
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ app_dir }}/{{ item.dest }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - { src: ../app.py, dest: app.py, mode: '0644' }
+        - { src: ../templates, dest: templates, mode: '0755' } # Copy entire directory
+
+    - name: Install Flask
+      pip:
+        name: flask
+        executable: pip3 # make sure pip3 is use
+        chdir: "{{ app_dir }}"  # Install within the app directory
+
+    - name: Run the application (in the background)
+      command:
+        cmd: "python3 app.py"
+        chdir: "{{ app_dir }}"
+      async: 120        # Run asynchronously (don't wait for it to finish)
+      poll: 0          # Don't poll for status (since it's a long-running process)
+
+    - name: Check if the application is accessible after a short delay
+      uri:
+         url: "http://127.0.0.1:5000/"
+         status_code: 200
+      register: app_result
+      until: app_result.status == 200
+      retries: 10 #Try 10 time 
+      delay: 5 # wait 5 sec before each retry
